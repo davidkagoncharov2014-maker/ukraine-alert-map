@@ -226,7 +226,7 @@ function toast(s){const t=document.getElementById('toast');t.textContent=s;t.cla
 function normalizeAutoRegion(value){return normalize(value).replace(/oblast$/,'').replace(/region$/,'').replace(/city$/,'').replace(/^autonomousrepublicof/,'');}
 function findAutoMapRegion(region){
  const aliases={
-  kyiv:'Kiev City',kyivska:'Kiev',ivano-frankivska:"Ivano-Frankivs'k",zaporizka:'Zaporizhzhya',odeska:'Odessa',vinnytska:'Vinnytsya',vinnicka:'Vinnytsya',
+  kyiv:'Kiev City',kyivska:'Kiev',"ivano-frankivska":"Ivano-Frankivs'k",zaporizka:'Zaporizhzhya',odeska:'Odessa',vinnytska:'Vinnytsya',vinnicka:'Vinnytsya',
   dnipropetrovska:"Dnipropetrovs'k",donetska:"Donets'k",donecka:"Donets'k",luhanska:"Luhans'k",luganska:"Luhans'k",ternopilska:"Ternopil'",khmelnytska:"Khmel'nyts'kyy",xmelnytska:"Khmel'nyts'kyy",
   crimea:'Crimea',sevastopol:"Sevastopol'",lvivska:"L'viv",volynska:'Volyn',volinska:'Volyn',rivnenska:'Rivne',zakarpatska:'Zakarpattia',xmelnycka:"Khmel'nyts'kyy",'m-xarkiv-ta-xarkivska-teritorialna-gromada':'Kharkiv','m-zaporizzia-ta-zaporizka-teritorialna-gromada':'Zaporizhzhya',
   zhytomyrska:'Zhytomyr',zitomirska:'Zhytomyr',kirovohradska:'Kirovohrad',kirovogradska:'Kirovohrad',mykolaivska:'Mykolayiv',mikolayivska:'Mykolayiv',poltavska:'Poltava',sumska:'Sumy',
