@@ -28,7 +28,7 @@ $('send').addEventListener('click',async()=>{
  const box=$('status');box.className='status show';box.textContent='';
  if(!key||!message||(!tg&&!mail)){box.textContent='Заповніть ключ, текст і виберіть канал.';return}
  if(mail&&(!list.length||list.length>15)){box.textContent='Для Gmail вкажіть від 1 до 15 адрес.';return}
- if(mail&&!list.every(x=>/^[^\s@]+@[^\s@]+\\.[^\s@]+$/.test(x))){box.textContent='Перевірте формат адрес електронної пошти.';return}
+ if(mail&&!list.every(x=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x))){box.textContent='Перевірте формат адрес електронної пошти.';return}
  if(mail&&!confirm('Підтверджуєте, що всі адресати Gmail погодилися отримувати це повідомлення?'))return;
  if(!confirm('Запустити розсилку? Telegram — лише підписникам /subscribe; Gmail — '+(mail?list.length:0)+' адрес.'))return;
  $('send').disabled=true;box.textContent='Виконується…';
