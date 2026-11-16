@@ -10,7 +10,7 @@
 <div class="layout"><section class="panel map-panel"><div class="maptop"><strong>🇺🇦 КАРТА УКРАИНЫ</strong><span id="mapStatus">Загрузка границ…</span><button class="btn" id="retryGeo" onclick="loadGeo(true)" style="padding:6px 9px">↻ Повторить</button></div><div id="map"></div><div class="legend"><span class="key"><i class="swatch" style="background:#233b50"></i>Спокойно</span><span class="key"><i class="swatch" style="background:#e23b48"></i>Баллистика</span><span class="key"><i class="swatch" style="background:linear-gradient(90deg,#ffd34f 50%,#e23b48 50%)"></i>Ракеты + шахеды</span><span class="key"><i class="swatch" style="background:#ffd34f"></i>Шахеды</span><span class="key"><i class="swatch" style="background:#a78bfa"></i>Ядерная угроза</span></div><div class="map-closed-overlay" id="mapClosedOverlay"><div class="map-closed-card"><strong id="mapClosedTitle">КАРТА НЕ ПРАЦЮЄ</strong><p id="mapClosedMessage">Зараз карта поза робочим часом.</p><small id="mapClosedUntil">Наступне відкриття: —</small></div></div></section>
 <aside class="side">
 
-<section class="panel"><div class="ptitle">Общая обстановка <small id="lastUpdate">Ожидание данных</small></div><div class="statusline"><div class="statusicon">✓</div><div><b id="overall">Автоматические оповещения выключены</b><small>Режим отображения: наблюдение</small></div></div><small id="autoAlertsPublicStatus" style="display:block;margin-top:9px;color:var(--muted);font-size:10px">Автоматика выключена администратором</small><div style="height:10px"></div><div class="notice">Независимая пользовательская карта. Отметки создаются администратором и не являются официальным подтверждением угрозы. Для безопасности следуйте официальным оповещениям.</div></section>
+<section class="panel"><div class="ptitle">Общая обстановка <small id="lastUpdate">Ожидание данных</small></div><div class="statusline"><div class="statusicon">✓</div><div><b id="overall">Автоматические оповещения выключены</b><small>Режим отображения: наблюдение</small></div></div><small id="autoAlertsPublicStatus" style="display:block;margin-top:9px;color:var(--muted);font-size:10px">Автоматика выключена администратором</small><div style="height:10px"></div><div class="notice">Независимая пользовательская карта. Автоматические отметки поступают от стороннего агрегатора открытых источников и могут задерживаться. Это не официальный канал оповещения. Следуйте официальным сигналам и инструкциям властей.</div></section>
 <section class="panel"><div class="ptitle">Журнал событий <small>локальный</small></div><div class="feed" id="feed"><div class="event"><i class="evdot" style="background:var(--blue)"></i><div><b>Система запущена</b><small>Ожидание загрузки карты</small></div></div></div></section>
 <section class="panel"><div class="ptitle">Голосовые оповещения <small>озвучка</small></div><div class="voicebar"><button class="btn primary" id="voiceBtn" onclick="toggleVoice()">🔊 Включить голос</button><button class="btn" onclick="testVoice()">▶ Проверить голос</button></div><p style="color:var(--muted);font-size:9px;line-height:1.4">Браузер может потребовать нажатие для разрешения звука. Озвучиваются только локальные демонстрационные отметки.</p></section>
 <section class="panel"><div class="ptitle">Безопасность <small>монитор</small></div><div class="statusline"><div class="statusicon" id="secIcon">✓</div><div><b id="secTitle" class="security-ok">Клиентская проверка активна</b><small id="secDesc">Серверный мониторинг не подключён</small></div></div><div style="height:10px"></div><div class="btnrow"><button class="btn" onclick="securityCheck()">Проверить интерфейс</button></div></section>
@@ -244,13 +244,14 @@ function renderAutoAlertsControls(){
  if(state)state.textContent=enabled?'ВКЛЮЧЕНЫ':'ВЫКЛЮЧЕНЫ';
  if(on)on.disabled=enabled;if(off)off.disabled=!enabled;
  const pub=document.getElementById('autoAlertsPublicStatus'),meta=document.getElementById('autoAlertSyncMeta');
- const stamp=sharedState.provider?.fetchedAt?new Date(sharedState.provider.fetchedAt).toLocaleString('ru-RU'):'нет успешной синхронизации';
- if(pub)pub.textContent=enabled?'Автоматика включена · источник: Tryvoha.online · обновлено: '+stamp:'Автоматика выключена администратором';
- if(meta)meta.textContent=enabled?'Источник: Tryvoha.online · последняя проверка: '+stamp:'Автоматический режим отключён';
+ const fetched=Date.parse(sharedState.provider?.fetchedAt||'');const fresh=Number.isFinite(fetched)&&Date.now()-fetched<180000;const stamp=Number.isFinite(fetched)?new Date(fetched).toLocaleString('ru-RU'):'нет успешной синхронизации';
+ if(pub)pub.textContent=!enabled?'Автоматика выключена администратором':fresh?'Автоматика включена · Tryvoha.online · обновлено: '+stamp:'Автоматика включена · нет свежих данных, подсветка приостановлена';
+ if(meta)meta.textContent=!enabled?'Автоматический режим отключён':fresh?'Источник: Tryvoha.online · последняя проверка: '+stamp:'Нет свежей синхронизации · последняя: '+stamp;
 }
 function applyAutoAlerts(){
  autoAlertMap={};
- if(sharedState.autoAlertsEnabled&&Array.isArray(sharedState.provider?.regions)){
+ const fetched=Date.parse(sharedState.provider?.fetchedAt||'');const fresh=Number.isFinite(fetched)&&Date.now()-fetched<180000;
+ if(sharedState.autoAlertsEnabled&&fresh&&Array.isArray(sharedState.provider?.regions)){
   sharedState.provider.regions.filter(r=>r.active).forEach(region=>{
    const name=findAutoMapRegion(region);if(name)autoAlertMap[name]=region.partial?'partial':(region.level==='yellow'?'shahed':'regional');
   });
@@ -262,12 +263,13 @@ async function setAutoAlerts(enabled){
  if(sharedState.autoAlertsEnabled===enabled){toast(enabled?'Автоматика уже включена':'Автоматика уже выключена');return;}
  sharedState.autoAlertsEnabled=enabled;renderAutoAlertsControls();applyAutoAlerts();
  await saveSharedState();
+ if(!backendOnline){sharedState.autoAlertsEnabled=!enabled;applyAutoAlerts();toast('Не удалось сохранить настройку на сервере');return;}
  if(!enabled){autoAlertMap={};applyAutoAlerts();toast('Автоматические оповещения отключены администратором');return;}
  toast('Автоматика включена · получаю первые данные…');
  try{
   const r=await fetch('https://mlflfnbzmrmlyxtafbrr.supabase.co/functions/v1/alerts-sync',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
   const j=await r.json();if(!r.ok||!j.ok)throw Error(j.error||'Источник временно недоступен');
-  await loadSharedState();toast('Автоматика включена · данные обновлены');
+  await loadSharedState();toast(j.skipped?'Автоматика включена · ожидаю следующую проверку':'Автоматика включена · данные обновлены');
  }catch(e){technicalErrors.push('Автосинхронизация: '+(e.message||'ошибка'));technicalErrors=technicalErrors.slice(-8);renderAutoAlertsControls();toast('Автоматика включена, но источник пока не ответил');runDiagnostics();}
 }
 async function loadSharedState(){try{const r=await fetch(API,{cache:'no-store'});if(!r.ok)throw Error('HTTP '+r.status);const payload=await r.json();const st=payload.state||{};Object.keys(statuses).forEach(k=>delete statuses[k]);Object.assign(statuses,st.regions||{});sharedState.areas=st.areas||[];sharedState.events=st.events||[];sharedState.flights=st.flights||[];sharedState.uavReports=st.uavReports||[];sharedState.cityAlerts=st.cityAlerts||[];sharedState.districtClearances=[];sharedState.mapStatus=st.mapStatus||'auto';sharedState.autoAlertsEnabled=st.autoAlertsEnabled===true;sharedState.provider=st.provider||null;renderPublicMapStatus();applyAutoAlerts();renderUavReports();renderCityAlerts();backendOnline=true;backendCheckedAt=new Date();addEvent('Состояние карты загружено','Данные получены с сервера','#35d39a');}catch(e){backendOnline=false;backendCheckedAt=new Date();technicalErrors.push('Сервис карты: '+(e.message||'ошибка'));technicalErrors=technicalErrors.slice(-8);}runDiagnostics()}
