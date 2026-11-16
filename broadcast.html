@@ -20,7 +20,7 @@
 <section class="card"><h2>Підключення</h2><p class="muted">Якщо надсилання не налаштоване, адміністратору потрібно додати серверні секрети в Supabase: BROADCAST_ADMIN_KEY і TELEGRAM_BOT_TOKEN. Для Gmail додатково потрібні GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, GMAIL_REFRESH_TOKEN та GMAIL_SENDER. Не вставляйте ці секрети в цю сторінку або в чат.</p></section>
 </main>
 <script>
-const $=id=>document.getElementById(id), emails=()=>[...new Set($('emails').value.split(/[\\s,;]+/).map(x=>x.trim()).filter(Boolean))];
+const $=id=>document.getElementById(id), emails=()=>[...new Set($('emails').value.split(/[\s,;]+/).map(x=>x.trim()).filter(Boolean))];
 $('message').addEventListener('input',()=>$('chars').textContent=$('message').value.length+' / 3500');
 $('emails').addEventListener('input',()=>{$('emailCount').textContent=emails().length+' / 15 адрес';$('emailCount').style.color=emails().length>15?'#ff7180':''});
 $('send').addEventListener('click',async()=>{
@@ -28,10 +28,10 @@ $('send').addEventListener('click',async()=>{
  const box=$('status');box.className='status show';box.textContent='';
  if(!key||!message||(!tg&&!mail)){box.textContent='Заповніть ключ, текст і виберіть канал.';return}
  if(mail&&(!list.length||list.length>15)){box.textContent='Для Gmail вкажіть від 1 до 15 адрес.';return}
- if(mail&&!list.every(x=>/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(x))){box.textContent='Перевірте формат адрес електронної пошти.';return}
+ if(mail&&!list.every(x=>/^[^\s@]+@[^\s@]+\\.[^\s@]+$/.test(x))){box.textContent='Перевірте формат адрес електронної пошти.';return}
  if(mail&&!confirm('Підтверджуєте, що всі адресати Gmail погодилися отримувати це повідомлення?'))return;
  if(!confirm('Запустити розсилку? Telegram — лише підписникам /subscribe; Gmail — '+(mail?list.length:0)+' адрес.'))return;
  $('send').disabled=true;box.textContent='Виконується…';
- try{const r=await fetch('https://mlflfnbzmrmlyxtafbrr.supabase.co/functions/v1/ua-alert-broadcast',{method:'POST',headers:{'Content-Type':'application/json','apikey':'sb_publishable_rO33FjdVKBi79GgLzaWE5g_CAPyNBXU'},body:JSON.stringify({adminKey:key,message,sendTelegram:tg,emails:mail?list:[]})});const d=await r.json();if(!r.ok)throw new Error(d.error||'Помилка '+r.status);box.textContent='Розсилка завершена.\\n'+JSON.stringify(d,null,2)}catch(e){box.textContent='Не вдалося виконати: '+e.message}finally{$('send').disabled=false}
+ try{const r=await fetch('https://mlflfnbzmrmlyxtafbrr.supabase.co/functions/v1/ua-alert-broadcast',{method:'POST',headers:{'Content-Type':'application/json','apikey':'sb_publishable_rO33FjdVKBi79GgLzaWE5g_CAPyNBXU'},body:JSON.stringify({adminKey:key,message,sendTelegram:tg,emails:mail?list:[]})});const d=await r.json();if(!r.ok)throw new Error(d.error||'Помилка '+r.status);box.textContent='Розсилка завершена.\n'+JSON.stringify(d,null,2)}catch(e){box.textContent='Не вдалося виконати: '+e.message}finally{$('send').disabled=false}
 });
 </script></body></html>
