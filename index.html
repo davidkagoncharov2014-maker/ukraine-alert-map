@@ -300,7 +300,7 @@ function clearLayers(){if(typeof map!=='undefined')nearbyLayers.forEach(x=>map.r
 function setBox(id,title,body){const e=$(id);if(e)e.innerHTML='<strong>'+esc(title)+'</strong>'+body}
 async function fetchJson(url,opts={}){const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),18000);try{const r=await fetch(url,{...opts,signal:ctrl.signal,cache:'no-store'});if(!r.ok)throw Error('HTTP '+r.status);return await r.json()}finally{clearTimeout(timer)}}
 async function detectRegion(lat,lon){
- const rev=await fetchJson('https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat='+encodeURIComponent(lat)+'&lon='+encodeURIComponent(lon)+'&zoom=10&addressdetails=1',{headers:{'Accept':'application/json'}});
+ const rev=await fetchJson('https://nominatim.openstreetmap.org/reverse?format=jsonv2&accept-language=uk&lat='+encodeURIComponent(lat)+'&lon='+encodeURIComponent(lon)+'&zoom=10&addressdetails=1',{headers:{'Accept':'application/json'}});
  const a=rev.address||{},state=a.state||a.region||a.province||'',city=a.city||a.town||a.village||a.municipality||'';
  const key=norm(state),slug=regionSlugs[key]||regionSlugs[norm(state.replace(/ область$/i,''))];
  if(!slug)throw Error('Не удалось определить область по адресу: '+(state||'название области не найдено'));
@@ -367,7 +367,7 @@ window.findNearbySafety=function(){
    nearbyLayers.push(you);map.setView([myCoords.lat,myCoords.lon],13);
    setBox('myLocationStatus','Моє місцезнаходження','Точку на карті позначено синім маркером. Визначаю область…');
    const results=await Promise.allSettled([detectRegion(myCoords.lat,myCoords.lon),loadNearbyShelters()]);
-   if(results[1].status==='rejected')$('nearbyShelterList').innerHTML='<div class="safety-muted">Не вдалося завантажити укриття. Спробуй ще раз пізніше.</div>';
+   if(results[0].status==='rejected'){setBox('myLocationStatus','Моє місцезнаходження','Координати отримано, але область не вдалося визначити.');setBox('myRegionAlert','Тривога в моїй області','Статус області невідомий. Перевір офіційні сповіщення.');}if(results[1].status==='rejected')$('nearbyShelterList').innerHTML='<div class="safety-muted">Не вдалося завантажити укриття. Спробуй ще раз пізніше.</div>';
   }catch(e){if(!myRegionSlug)setBox('myLocationStatus','Моє місцезнаходження','Місце визначено, але область не вдалося встановити.');$('nearbyShelterList').innerHTML='<div class="safety-muted">Не вдалося завантажити список укриттів. Спробуй ще раз пізніше.</div>';}
   finally{if(btn){btn.disabled=false;btn.textContent='📍 Знайти укриття поруч'}}
  },err=>{
