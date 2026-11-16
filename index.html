@@ -28,7 +28,7 @@
 <div class="modal" id="login"><div class="dialog"><h2>🔐 Панель администратора</h2><p>Введите ключ доступа. Без ключа доступен только режим наблюдения.</p><input id="pass" class="field" type="password" placeholder="Ключ доступа" autocomplete="off"><div class="btnrow"><button class="btn primary" style="flex:1" onclick="login()">Войти</button><button class="btn" onclick="closeLogin()">Отмена</button></div><p id="loginErr" style="color:#ff8290;display:none">Неверный ключ. Попробуйте ещё раз.</p></div></div><div class="toast" id="toast"></div>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script><script>
 const API='https://mlflfnbzmrmlyxtafbrr.supabase.co/functions/v1/alert-state';let adminPassword='',backendOnline=false,backendCheckedAt=null,geoSource='ожидание';let technicalErrors=[];const sharedState={areas:[],events:[],flights:[],cityAlerts:[],districtClearances:[]};const map=L.map('map',{zoomControl:true,scrollWheelZoom:true}).setView([48.7,31.2],5.7);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:12,attribution:'© OpenStreetMap'}).addTo(map);
-const statuses={};let geoLayer=null,admin=false,securityCompromised=false,voiceOn=false;const shahedMarkers=[];const uavLayers=[];const districtMapLayers=[];const cityAlertLayers=[];const colors={clear:'#233b50',ballistic:'#e23b48',kab:'#f97316',cruise:'#3b82f6',mixed:'#e5b52d',shahed:'#ffd34f',nuclear:'#8b5cf6'};const labels={clear:'Отбой',ballistic:'Баллистическая угроза',kab:'Угроза применения КАБ',cruise:'Угроза крылатых ракет',mixed:'Угроза: ракеты и шахеды',shahed:'Угроза шахедов',nuclear:'Ядерная угроза'};
+const statuses={};let geoLayer=null,admin=false,securityCompromised=false,voiceOn=false;const shahedMarkers=[];const uavLayers=[];const districtMapLayers=[];const cityAlertLayers=[];const colors={clear:'#233b50',ballistic:'#e23b48',kab:'#f97316',cruise:'#3b82f6',mixed:'#e5b52d',shahed:'#ffd34f',nuclear:'#8b5cf6',regional:'#e23b48'};const labels={clear:'Отбой',ballistic:'Баллистическая угроза',kab:'Угроза применения КАБ',cruise:'Угроза крылатых ракет',mixed:'Угроза: ракеты и шахеды',shahed:'Угроза шахедов',nuclear:'Ядерная угроза',regional:'Тревога в области'};
 function propName(f){const p=f.properties||{};return p.shapeName||p.name||p.NAME_1||p.NAME||p.name_1||p.NAME_UA||p.admin1Name||'Область'}function normalize(s){return String(s).toLowerCase().replace(/ область|ська область| region| oblast/g,'').replace(/[^а-яіїєґa-z]/g,'')}
 function style(f){const n=propName(f),st=statuses[n]||'clear';return{color:st==='clear'?'#527087':st==='mixed'?'#e23b48':'#f4d8a0',weight:st==='mixed'||st==='kab'||st==='cruise'?3:1.4,opacity:.95,fillColor:colors[st],fillOpacity:.68,dashArray:st==='mixed'||st==='kab'||st==='cruise'?'5 3':null}}function onEach(f,l){const n=propName(f);l.bindTooltip(n,{sticky:true});l.on('click',()=>{document.getElementById('region').value=n;toast(n+' — '+labels[statuses[n]||'clear'])})}
 // Несколько независимых зеркал. После первой удачной загрузки границы сохраняются в браузере.
@@ -81,6 +81,14 @@ async function setCityAlert(status){
   sharedState.cityAlerts=(sharedState.cityAlerts||[]).filter(x=>normalize(x.city)!==normalize(city));
   renderCityAlerts();await saveSharedState();toast('Міську позначку знято: '+city);return;
  }
+ if(status==='oblast'){
+  if(!oblast){toast('Спочатку оберіть область');return}
+  const list=sharedState.cityAlerts||(sharedState.cityAlerts=[]);
+  let item=list.find(x=>normalize(x.city)===normalize(city));
+  if(!item){item={id:'city-'+Date.now(),city};list.push(item)}
+  item.city=city;item.oblast=oblast;item.status='oblast';item.updatedAt=Date.now();
+  statuses[oblast]='regional';if(geoLayer)geoLayer.setStyle(style);refresh();renderCityAlerts();await saveSharedState();toast(oblast+': тривога лише в області');return;
+ }
  try{
   const url='https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=ua&city='+encodeURIComponent(city);
   const response=await fetch(url,{headers:{'Accept':'application/json'}});
@@ -109,6 +117,7 @@ function renderCityAlerts(){
    root.appendChild(row);
   });
  }
+ if(geoLayer)geoLayer.setStyle(style);
  if(!geoLayer)return;
  list.filter(x=>x.status&&x.status!=='oblast').forEach(item=>{
   const lat=Number(item.lat),lon=Number(item.lon);if(!Number.isFinite(lat)||!Number.isFinite(lon))return;
