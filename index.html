@@ -32,9 +32,9 @@
 <div class="modal" id="login"><div class="dialog"><h2>🔐 Панель администратора</h2><p>Введите ключ доступа. Без ключа доступен только режим наблюдения.</p><input id="pass" class="field" type="password" placeholder="Ключ доступа" autocomplete="off"><div class="btnrow"><button class="btn primary" style="flex:1" onclick="login()">Войти</button><button class="btn" onclick="closeLogin()">Отмена</button></div><p id="loginErr" style="color:#ff8290;display:none">Неверный ключ. Попробуйте ещё раз.</p></div></div><div class="toast" id="toast"></div>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script><script>
 const API='https://mlflfnbzmrmlyxtafbrr.supabase.co/functions/v1/alert-state';let adminPassword='',backendOnline=false,backendCheckedAt=null,geoSource='ожидание';let technicalErrors=[];const sharedState={areas:[],events:[],flights:[],cityAlerts:[],districtClearances:[],autoAlertsEnabled:false,provider:null};const map=L.map('map',{zoomControl:true,scrollWheelZoom:true}).setView([48.7,31.2],5.7);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:12,attribution:'© OpenStreetMap'}).addTo(map);
-const statuses={};let autoAlertMap={};let geoLayer=null,admin=false,securityCompromised=false,voiceOn=false;const shahedMarkers=[];const uavLayers=[];const districtMapLayers=[];const cityAlertLayers=[];const colors={clear:'#233b50',ballistic:'#e23b48',kab:'#f97316',cruise:'#3b82f6',mixed:'#e5b52d',shahed:'#ffd34f',nuclear:'#8b5cf6',regional:'#e23b48'};const labels={clear:'Отбой',ballistic:'Баллистическая угроза',kab:'Угроза применения КАБ',cruise:'Угроза крылатых ракет',mixed:'Угроза: ракеты и шахеды',shahed:'Угроза шахедов',nuclear:'Ядерная угроза',regional:'Тревога в области'};
+const statuses={};let autoAlertMap={};let geoLayer=null,admin=false,securityCompromised=false,voiceOn=false;const shahedMarkers=[];const uavLayers=[];const districtMapLayers=[];const cityAlertLayers=[];const colors={clear:'#233b50',ballistic:'#e23b48',kab:'#f97316',cruise:'#3b82f6',mixed:'#e5b52d',shahed:'#ffd34f',nuclear:'#8b5cf6',regional:'#e23b48',partial:'#f97316'};const labels={clear:'Отбой',ballistic:'Баллистическая угроза',kab:'Угроза применения КАБ',cruise:'Угроза крылатых ракет',mixed:'Угроза: ракеты и шахеды',shahed:'Угроза БПЛА',nuclear:'Ядерная угроза',regional:'Тревога в области',partial:'Частичная тревога в районе области'};
 function propName(f){const p=f.properties||{};return p.shapeName||p.name||p.NAME_1||p.NAME||p.name_1||p.NAME_UA||p.admin1Name||'Область'}function normalize(s){return String(s).toLowerCase().replace(/ область|ська область| region| oblast/g,'').replace(/[^а-яіїєґa-z]/g,'')}
-function style(f){const n=propName(f),st=autoAlertMap[n]||statuses[n]||'clear';return{color:st==='clear'?'#527087':st==='mixed'?'#e23b48':'#f4d8a0',weight:st==='mixed'||st==='kab'||st==='cruise'?3:1.4,opacity:.95,fillColor:colors[st],fillOpacity:.68,dashArray:st==='mixed'||st==='kab'||st==='cruise'?'5 3':null}}function onEach(f,l){const n=propName(f);l.bindTooltip(n,{sticky:true});l.on('click',()=>{document.getElementById('region').value=n;toast(n+' — '+labels[statuses[n]||'clear'])})}
+function style(f){const n=propName(f),st=autoAlertMap[n]||statuses[n]||'clear';return{color:st==='clear'?'#527087':st==='mixed'?'#e23b48':st==='partial'?'#f97316':'#f4d8a0',weight:st==='mixed'||st==='kab'||st==='cruise'||st==='partial'?3:1.4,opacity:.95,fillColor:colors[st]||colors.clear,fillOpacity:st==='partial'?.48:.68,dashArray:st==='mixed'||st==='kab'||st==='cruise'||st==='partial'?'5 3':null}}function onEach(f,l){const n=propName(f);l.bindTooltip(()=>n+' · '+labels[autoAlertMap[n]||statuses[n]||'clear'],{sticky:true});l.on('click',()=>{document.getElementById('region').value=n;toast(n+' — '+labels[autoAlertMap[n]||statuses[n]||'clear'])})}
 // Несколько независимых зеркал. После первой удачной загрузки границы сохраняются в браузере.
 const geoUrls=[
 'https://raw.githubusercontent.com/romansverdan/Ukraine-Map/main/ukraine-adm-regions.json',
@@ -226,14 +226,15 @@ function toast(s){const t=document.getElementById('toast');t.textContent=s;t.cla
 function normalizeAutoRegion(value){return normalize(value).replace(/oblast$/,'').replace(/region$/,'').replace(/city$/,'').replace(/^autonomousrepublicof/,'');}
 function findAutoMapRegion(region){
  const aliases={
-  kyiv:'Kiev City',kyivska:'Kiev',ivano-frankivska:"Ivano-Frankivs'k",zaporizka:'Zaporizhzhya',odeska:'Odessa',vinnytska:'Vinnytsya',
-  dnipropetrovska:"Dnipropetrovs'k",donetska:"Donets'k",luhanska:"Luhans'k",ternopilska:"Ternopil'",khmelnytska:"Khmel'nyts'kyy",
-  crimea:'Crimea',sevastopol:"Sevastopol'",lvivska:"L'viv",volynska:'Volyn',rivnenska:'Rivne',zakarpatska:'Zakarpattia',
-  zhytomyrska:'Zhytomyr',kirovohradska:'Kirovohrad',mykolaivska:'Mykolayiv',poltavska:'Poltava',sumska:'Sumy',
-  kharkivska:'Kharkiv',khersonska:'Kherson',cherkaska:'Cherkasy',chernivetska:'Chernivtsi',chernihivska:'Chernihiv'
+  kyiv:'Kiev City',kyivska:'Kiev',ivano-frankivska:"Ivano-Frankivs'k",zaporizka:'Zaporizhzhya',odeska:'Odessa',vinnytska:'Vinnytsya',vinnicka:'Vinnytsya',
+  dnipropetrovska:"Dnipropetrovs'k",donetska:"Donets'k",donecka:"Donets'k",luhanska:"Luhans'k",luganska:"Luhans'k",ternopilska:"Ternopil'",khmelnytska:"Khmel'nyts'kyy",xmelnytska:"Khmel'nyts'kyy",
+  crimea:'Crimea',sevastopol:"Sevastopol'",lvivska:"L'viv",volynska:'Volyn',volinska:'Volyn',rivnenska:'Rivne',zakarpatska:'Zakarpattia',
+  zhytomyrska:'Zhytomyr',zitomirska:'Zhytomyr',kirovohradska:'Kirovohrad',kirovogradska:'Kirovohrad',mykolaivska:'Mykolayiv',mikolayivska:'Mykolayiv',poltavska:'Poltava',sumska:'Sumy',
+  kharkivska:'Kharkiv',xarkivska:'Kharkiv',khersonska:'Kherson',xersonska:'Kherson',cherkaska:'Cherkasy',cerkaska:'Cherkasy',chernivetska:'Chernivtsi',cernivecka:'Chernivtsi',chernihivska:'Chernihiv',cernigivska:'Chernihiv'
  };
  const names=[];if(geoLayer)geoLayer.eachLayer(layer=>names.push(propName(layer.feature)));
- const candidates=[aliases[region.slug],region.nameEn,region.nameUk,region.slug].filter(Boolean);
+ const slugKey=String(region.slug||'').replace(/-oblast$/,'').replace(/oblast$/,'');
+ const candidates=[aliases[region.slug],aliases[slugKey],region.nameEn,region.nameUk,region.slug].filter(Boolean);
  for(const candidate of candidates){const key=normalizeAutoRegion(candidate);let match=names.find(n=>normalizeAutoRegion(n)===key);if(match)return match;match=names.find(n=>{const k=normalizeAutoRegion(n);return k.length>5&&(k.includes(key)||key.includes(k))});if(match)return match;}
  return null;
 }
@@ -251,7 +252,7 @@ function applyAutoAlerts(){
  autoAlertMap={};
  if(sharedState.autoAlertsEnabled&&Array.isArray(sharedState.provider?.regions)){
   sharedState.provider.regions.filter(r=>r.active).forEach(region=>{
-   const name=findAutoMapRegion(region);if(name)autoAlertMap[name]=region.level==='yellow'?'shahed':'regional';
+   const name=findAutoMapRegion(region);if(name)autoAlertMap[name]=region.partial?'partial':(region.level==='yellow'?'shahed':'regional');
   });
  }
  renderAutoAlertsControls();refresh();
