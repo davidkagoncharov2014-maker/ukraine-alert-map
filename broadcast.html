@@ -32,6 +32,6 @@ $('send').addEventListener('click',async()=>{
  if(mail&&!confirm('Підтверджуєте, що всі адресати Gmail погодилися отримувати це повідомлення?'))return;
  if(!confirm('Запустити розсилку? Telegram — лише підписникам /subscribe; Gmail — '+(mail?list.length:0)+' адрес.'))return;
  $('send').disabled=true;box.textContent='Виконується…';
- try{const r=await fetch('https://mlflfnbzmrmlyxtafbrr.supabase.co/functions/v1/ua-alert-broadcast',{method:'POST',headers:{'Content-Type':'application/json','apikey':'SUPABASE_ANON_KEY'},body:JSON.stringify({adminKey:key,message,sendTelegram:tg,emails:mail?list:[]})});const d=await r.json();if(!r.ok)throw new Error(d.error||'Помилка '+r.status);box.textContent='Розсилка завершена.\\n'+JSON.stringify(d,null,2)}catch(e){box.textContent='Не вдалося виконати: '+e.message}finally{$('send').disabled=false}
+ try{const r=await fetch('https://mlflfnbzmrmlyxtafbrr.supabase.co/functions/v1/ua-alert-broadcast',{method:'POST',headers:{'Content-Type':'application/json','apikey':'sb_publishable_rO33FjdVKBi79GgLzaWE5g_CAPyNBXU'},body:JSON.stringify({adminKey:key,message,sendTelegram:tg,emails:mail?list:[]})});const d=await r.json();if(!r.ok)throw new Error(d.error||'Помилка '+r.status);box.textContent='Розсилка завершена.\\n'+JSON.stringify(d,null,2)}catch(e){box.textContent='Не вдалося виконати: '+e.message}finally{$('send').disabled=false}
 });
 </script></body></html>
