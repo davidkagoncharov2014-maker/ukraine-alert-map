@@ -12,7 +12,7 @@
 <label class="check"><input id="tg" type="checkbox" checked><span><b>Telegram</b><small>Лише користувачі, які самі ввімкнули сповіщення командою /subscribe. До 30 одержувачів за один запуск; між повідомленнями є пауза.</small></span></label>
 <label class="check"><input id="mail" type="checkbox"><span><b>Gmail</b><small>До 15 адрес за один запуск. Вказуйте лише людей, які погодилися отримувати ці листи.</small></span></label>
 </div>
-<label for="emails">Адреси одержувачів Gmail — максимум 15, кожна з нового рядка</label><textarea class="field" id="emails" rows="5" placeholder="name@example.com&#10;another@example.com"></textarea><div class="counter" id="emailCount">0 / 15 адрес</div>
+<label for="tgLimit">Кількість одержувачів Telegram за запуск (1–30)</label><input class="field" id="tgLimit" type="number" min="1" max="30" value="30"><label for="emails">Адреси одержувачів Gmail — максимум 15, кожна з нового рядка</label><textarea class="field" id="emails" rows="5" placeholder="name@example.com&#10;another@example.com"></textarea><div class="counter" id="emailCount">0 / 15 адрес</div>
 <div class="warning">Не надсилайте паролі, коди входу чи приватні дані. Для Telegram використовуються лише активні підписки; для Gmail потрібна згода адресатів. Ключ адміністратора та токен бота не публікуються на сторінці.</div>
 <button class="btn" id="send">Почати розсилку</button><div class="status" id="status" role="status"></div>
 <a class="toplink" href="/">← Повернутися до карти UA ALERT</a>
@@ -24,7 +24,7 @@ const $=id=>document.getElementById(id), emails=()=>[...new Set($('emails').valu
 $('message').addEventListener('input',()=>$('chars').textContent=$('message').value.length+' / 3500');
 $('emails').addEventListener('input',()=>{$('emailCount').textContent=emails().length+' / 15 адрес';$('emailCount').style.color=emails().length>15?'#ff7180':''});
 $('send').addEventListener('click',async()=>{
- const key=$('key').value.trim(),message=$('message').value.trim(),list=emails(),tg=$('tg').checked,mail=$('mail').checked;
+ const key=$('key').value.trim(),message=$('message').value.trim(),list=emails(),tg=$('tg').checked,mail=$('mail').checked,telegramLimit=Math.max(1,Math.min(30,Number($('tgLimit').value)||30));
  const box=$('status');box.className='status show';box.textContent='';
  if(!key||!message||(!tg&&!mail)){box.textContent='Заповніть ключ, текст і виберіть канал.';return}
  if(mail&&(!list.length||list.length>15)){box.textContent='Для Gmail вкажіть від 1 до 15 адрес.';return}
@@ -32,6 +32,6 @@ $('send').addEventListener('click',async()=>{
  if(mail&&!confirm('Підтверджуєте, що всі адресати Gmail погодилися отримувати це повідомлення?'))return;
  if(!confirm('Запустити розсилку? Telegram — лише підписникам /subscribe; Gmail — '+(mail?list.length:0)+' адрес.'))return;
  $('send').disabled=true;box.textContent='Виконується…';
- try{const r=await fetch('https://mlflfnbzmrmlyxtafbrr.supabase.co/functions/v1/ua-alert-broadcast',{method:'POST',headers:{'Content-Type':'application/json','apikey':'sb_publishable_rO33FjdVKBi79GgLzaWE5g_CAPyNBXU'},body:JSON.stringify({adminKey:key,message,sendTelegram:tg,emails:mail?list:[]})});const d=await r.json();if(!r.ok)throw new Error(d.error||'Помилка '+r.status);box.textContent='Розсилка завершена.\n'+JSON.stringify(d,null,2)}catch(e){box.textContent='Не вдалося виконати: '+e.message}finally{$('send').disabled=false}
+ try{const r=await fetch('https://mlflfnbzmrmlyxtafbrr.supabase.co/functions/v1/ua-alert-broadcast',{method:'POST',headers:{'Content-Type':'application/json','apikey':'sb_publishable_rO33FjdVKBi79GgLzaWE5g_CAPyNBXU'},body:JSON.stringify({adminKey:key,message,sendTelegram:tg,telegramLimit,emails:mail?list:[]})});const d=await r.json();if(!r.ok)throw new Error(d.error||'Помилка '+r.status);box.textContent='Розсилка завершена.\n'+JSON.stringify(d,null,2)}catch(e){box.textContent='Не вдалося виконати: '+e.message}finally{$('send').disabled=false}
 });
 </script></body></html>
