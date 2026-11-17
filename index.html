@@ -155,7 +155,11 @@ async function setCityAlert(status){
   if(index>=0)list[index]=item;else list.push(item);
   statuses[oblast]='regional';if(geoLayer)geoLayer.setStyle(style);refresh();renderCityAlerts();await saveSharedState();toast(oblast+': позначена вся область');return;
  }
- if(!city){toast('Введіть назву міста');input.focus();return}
+ if(!city&&status==='clear'&&oblast){
+  sharedState.cityAlerts=(sharedState.cityAlerts||[]).filter(x=>!(x.status==='oblast'&&x.oblast===oblast));
+  delete statuses[oblast];if(geoLayer)geoLayer.setStyle(style);refresh();renderCityAlerts();await saveSharedState();toast(oblast+': позначку області знято');return;
+ }
+ if(!city){toast(status==='clear'?'Введіть місто або виберіть область':'Введіть назву міста');input.focus();return}
  if(status==='clear'){
   sharedState.cityAlerts=(sharedState.cityAlerts||[]).filter(x=>normalize(x.city)!==normalize(city));
   renderCityAlerts();await saveSharedState();toast('Міську позначку знято: '+city);return;
