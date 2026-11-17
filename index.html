@@ -170,8 +170,9 @@ async function setCityAlert(status){
   if(!item){item={id:'city-'+Date.now(),city};list.push(item)}
   if(status==='center'){
    toast('Шукаю межі центрального району…');
-   const found=await findCenterBoundary(city);
-   item.city=city;item.oblast=oblast||'';item.geometry=found.geojson;item.lat=Number(found.lat);item.lon=Number(found.lon);item.status='center';item.updatedAt=Date.now();
+   let found,centerApproximate=false;
+   try{found=await findCenterBoundary(city)}catch(e){found=await findCityBoundary(city);centerApproximate=true}
+   item.city=city;item.oblast=oblast||'';item.geometry=found.geojson;item.lat=Number(found.lat);item.lon=Number(found.lon);item.centerApproximate=centerApproximate;item.status='center';item.updatedAt=Date.now();
   }else if(status==='half-west'||status==='half-east'){
    toast('Завантажую межі міста та ділю його на дві частини…');
    const found=await findCityBoundary(city);
@@ -203,14 +204,23 @@ function renderCityAlerts(){
   if(item.status==='center'){
    if(!item.geometry)return;
    try{
-    const area=L.geoJSON(item.geometry,{style:{color:meta.color,weight:3,opacity:1,fillColor:meta.color,fillOpacity:.38,interactive:false}}).addTo(map);
+    let area,bounds,label=' · центр';
+    if(item.centerApproximate){
+     const cityBounds=L.geoJSON(item.geometry).getBounds();
+     const center=L.latLng(Number(item.lat),Number(item.lon));
+     const radius=Math.max(350,Math.min(1200,map.distance(cityBounds.getSouthWest(),cityBounds.getNorthEast())*.12));
+     area=L.circle(center,{radius,color:meta.color,weight:3,opacity:1,fillColor:meta.color,fillOpacity:.38,interactive:false}).addTo(map);
+     bounds=area.getBounds();label=' · центр приблизно';
+    }else{
+     area=L.geoJSON(item.geometry,{style:{color:meta.color,weight:3,opacity:1,fillColor:meta.color,fillOpacity:.38,interactive:false}}).addTo(map);
+     bounds=area.getBounds();
+    }
     cityAlertLayers.push(area);
-    const bounds=area.getBounds();
     if(bounds.isValid()){
-     const icon=L.divIcon({className:'',html:'<span style="display:inline-block;padding:4px 7px;border:1px solid '+meta.color+';border-radius:8px;background:#101927ed;color:#fff;font-size:11px;font-weight:800;white-space:nowrap">🔴 '+String(item.city).replace(/[<>&"]/g,'')+' · центр</span>',iconSize:[150,26],iconAnchor:[75,13]});
+     const icon=L.divIcon({className:'',html:'<span style="display:inline-block;padding:4px 7px;border:1px solid '+meta.color+';border-radius:8px;background:#101927ed;color:#fff;font-size:11px;font-weight:800;white-space:nowrap">🔴 '+String(item.city).replace(/[<>&"]/g,'')+label+'</span>',iconSize:[180,26],iconAnchor:[90,13]});
      cityAlertLayers.push(L.marker(bounds.getCenter(),{icon,keyboard:false,interactive:false}).addTo(map));
     }
-   }catch(e){console.warn('Не вдалося відобразити межі центрального району',e)}
+   }catch(e){console.warn('Не вдалося відобразити центральну зону',e)}
    return;
   }
   if((item.status==='half'||item.status==='half-west'||item.status==='half-east')&&item.geometry){
