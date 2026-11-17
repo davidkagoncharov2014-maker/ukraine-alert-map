@@ -19,14 +19,14 @@
 <input id="cityName" class="field" maxlength="80" placeholder="Введіть назву міста України">
 <div style="height:8px"></div>
 <div class="btnrow">
-<button class="btn danger" onclick="setCityAlert('center')">🔴 Весь центральний район</button>
-<button class="btn yellow" onclick="setCityAlert('half')">🟡 Зафарбувати половину міста</button>
-<button class="btn" style="background:#9a4d16" onclick="setCityAlert('except-center')">🟠 Місто, крім центру</button>
-<button class="btn purple" onclick="setCityAlert('oblast')">🟣 Лише область</button>
-<button class="btn green" onclick="setCityAlert('clear')">🟢 Відбій міста</button>
+<button class="btn yellow" onclick="setCityAlert('half-west')">🟡 Перша половина міста</button>
+<button class="btn yellow" onclick="setCityAlert('half-east')">🟡 Друга половина міста</button>
+<button class="btn danger" onclick="setCityAlert('center')">🔴 Центральний район</button>
+<button class="btn purple" onclick="setCityAlert('oblast')">🟣 Вся выбранная область</button>
+<button class="btn green" onclick="setCityAlert('clear')">🟢 Снять отметку с города</button>
 </div>
 <div id="cityAlertList" style="display:grid;gap:7px;margin-top:10px"></div>
-<p style="color:var(--muted);font-size:9px;line-height:1.4">Центральний район підсвічується за його межами з OpenStreetMap. Половина міста зафарбовується за межами міста з OpenStreetMap. Карта не показує координати або маршрути. Перевіряйте офіційні сповіщення.</p>
+<p style="color:var(--muted);font-size:9px;line-height:1.4">Половини міста діляться за межами OpenStreetMap. Центральний район відображається лише якщо його окремі межі знайдені в OpenStreetMap. Позначки є ручними та не є офіційними сповіщеннями. Карта не показує координати або маршрути. Перевіряйте офіційні сповіщення.</p>
 <div style="height:12px;border-top:1px solid var(--line)"></div><div class="ptitle">Отметки БПЛА <small>по области · без точных координат</small></div><label style="display:block;color:var(--muted);font-size:10px;margin-bottom:6px">ТИП</label><select id="uavType" class="field"><option value="shahed">Обычный «Шахед»</option><option value="jet_shahed">Реактивный «Шахед»</option></select><div style="height:8px"></div><div class="notice">Предварительная информация: возможны ошибки и задержки. Метка показывает только область, не точное положение или направление. Проверяйте официальные оповещения.</div><div style="height:9px"></div><div class="btnrow"><button class="btn yellow" onclick="setUavReport('observed')">⚠️ Отметить БПЛА</button><button class="btn" onclick="setUavReport('unknown')">❔ Направление неизвестно</button><button class="btn green" onclick="setUavReport('downed')">🛡 Отметить «Сбит»</button><button class="btn danger" onclick="setUavReport('impact')">💥 Отметить «Прилёт»</button><button class="btn" onclick="setUavReport('cleared')">⏹ Снять отметку</button><button class="btn" onclick="clearUavReports()">Удалить все отметки</button></div><div style="height:12px;border-top:1px solid var(--line)"></div><div class="ptitle">Тест безопасности</div><div class="btnrow"><button class="btn danger" onclick="simulateSecurity()">⚠️ Тест: подозрительная активность</button><button class="btn" onclick="resetSecurity()">Сбросить тест</button></div><div style="height:8px"></div><button class="btn" style="width:100%" onclick="logout()">Выйти из панели</button><p style="color:var(--muted);font-size:9px;line-height:1.4">Изменения сохраняются на сервере и отображаются всем посетителям. Доступ администратора проверяется сервером.</p></section>
 </aside></div><div class="foot">Карта использует OpenStreetMap и открытые геоданные административных границ. Отметки на карте управляются администратором и не подключены к официальным системам оповещения. Следуйте сообщениям органов власти и официальным сигналам воздушной тревоги.</div></main>
 <div class="modal" id="login"><div class="dialog"><h2>🔐 Панель администратора</h2><p>Введите ключ доступа. Без ключа доступен только режим наблюдения.</p><input id="pass" class="field" type="password" placeholder="Ключ доступа" autocomplete="off"><div class="btnrow"><button class="btn primary" style="flex:1" onclick="login()">Войти</button><button class="btn" onclick="closeLogin()">Отмена</button></div><p id="loginErr" style="color:#ff8290;display:none">Неверный ключ. Попробуйте ещё раз.</p></div></div><div class="toast" id="toast"></div>
@@ -70,10 +70,11 @@ async function setRegion(st){if(!admin)return;const n=document.getElementById('r
 function announce(message){if(!voiceOn||!('speechSynthesis'in window))return;window.speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(message);u.lang='ru-RU';u.rate=0.92;window.speechSynthesis.speak(u)}function toggleVoice(){voiceOn=!voiceOn;document.getElementById('voiceBtn').textContent=voiceOn?'🔊 Голос включён':'🔇 Голос выключен';if(voiceOn){announce('Голосовые оповещения включены');toast('Голосовые оповещения включены')}else{window.speechSynthesis?.cancel();toast('Голос выключен')}}function testVoice(){if(!('speechSynthesis'in window)){toast('Озвучка не поддерживается браузером');return}voiceOn=true;document.getElementById('voiceBtn').textContent='🔊 Голос включён';announce('Внимание. Это проверка голосового оповещения. Реальные данные не подключены.')}
 const districtStatusMeta={clear:{label:'Отбой',icon:'🟢',color:'#35d39a'},ballistic:{label:'Баллистическая угроза',icon:'🔴',color:'#e23b48'},kab:{label:'Угроза КАБ',icon:'🟠',color:'#f97316'},cruise:{label:'Угроза крылатых ракет',icon:'🔵',color:'#3b82f6'},mixed:{label:'Ракеты и БПЛА',icon:'🟡🔴',color:'#e5b52d'},shahed:{label:'Угроза БПЛА',icon:'🟡',color:'#ffd34f'},nuclear:{label:'Ядерная угроза',icon:'🟣',color:'#8b5cf6'}};function setDistrictClearance(){setDistrictStatus('clear')}function setDistrictStatus(status){if(!admin||!adminPassword)return;const meta=districtStatusMeta[status];if(!meta)return;const input=document.getElementById('districtName');const district=input.value.trim();const oblast=document.getElementById('region').value;if(!district){toast('Впиши название района');input.focus();return}if(!oblast){toast('Сначала выбери область');return}const list=sharedState.districtClearances||(sharedState.districtClearances=[]);const key=s=>String(s||'').toLocaleLowerCase('uk-UA').replace(/\\s+/g,' ').trim();let item=list.find(x=>key(x.district)===key(district)&&key(x.oblast)===key(oblast));if(!item){item={id:'district-'+Date.now()+'-'+Math.random().toString(36).slice(2,7),district,oblast};list.push(item)}item.district=district;item.oblast=oblast;item.status=status;item.updatedAt=Date.now();renderDistrictClearances();addEvent(meta.label+' · район',district+' · '+oblast,meta.color);saveSharedState().then(()=>toast(meta.label+': '+district));input.value=''}function renderDistrictClearances(){const root=document.getElementById('districtClearanceList');if(root){root.replaceChildren();const list=sharedState.districtClearances||[];if(!list.length){root.textContent='Пока нет отметок'}else list.slice().sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0)).forEach(item=>{const status=districtStatusMeta[item.status||'clear']||districtStatusMeta.clear;const el=document.createElement('div');el.className='district-clearance-item';el.style.borderColor=status.color;el.style.color=status.color;const title=document.createElement('b');title.textContent=status.icon+' '+item.district+' — '+status.label;el.appendChild(title);if(item.oblast){const sub=document.createElement('small');sub.textContent=item.oblast;el.appendChild(sub)}root.appendChild(el)})}renderDistrictMapMarkers()}function renderDistrictMapMarkers(){districtMapLayers.forEach(layer=>map.removeLayer(layer));districtMapLayers.length=0;if(!geoLayer)return;const list=(sharedState.districtClearances||[]).filter(item=>item.status!=='clear').slice().sort((a,b)=>(a.oblast||'').localeCompare(b.oblast||'')||(a.updatedAt||0)-(b.updatedAt||0));const perRegion={};list.forEach(item=>{let target=null;geoLayer.eachLayer(layer=>{if(!target&&normalize(propName(layer.feature))===normalize(item.oblast))target=layer});if(!target)return;const center=target.getBounds().getCenter();const idx=perRegion[item.oblast]||0;perRegion[item.oblast]=idx+1;const status=districtStatusMeta[item.status||'ballistic']||districtStatusMeta.ballistic;const lat=center.lat+((idx%3)-1)*0.10;const lng=center.lng+(Math.floor(idx/3)-0.5)*0.13;const shape=[[-0.105,-0.045],[-0.082,-0.095],[-0.025,-0.115],[0.018,-0.092],[0.078,-0.103],[0.112,-0.052],[0.098,0.012],[0.12,0.065],[0.067,0.105],[0.012,0.091],[-0.042,0.118],[-0.095,0.072],[-0.118,0.018]].map(([dy,dx])=>[lat+dy,lng+dx]);const zone=L.polygon(shape,{color:status.color,weight:2,opacity:.9,fillColor:status.color,fillOpacity:.42,interactive:false,smoothFactor:1}).addTo(map);districtMapLayers.push(zone)})}
 const cityAlertMeta={
- center:{label:'Весь центральний район',color:'#e23b48',icon:'🔴'},
- half:{label:'Половина міста',color:'#ffd34f',icon:'🟡'},
- 'except-center':{label:'Місто, крім центру',color:'#f97316',icon:'🟠'},
- oblast:{label:'Лише область',color:'#a78bfa',icon:'🟣'}
+ center:{label:'Центральний район (межі OpenStreetMap)',color:'#e23b48',icon:'🔴'},
+ 'half-west':{label:'Перша половина міста',color:'#ffd34f',icon:'🟡'},
+ 'half-east':{label:'Друга половина міста',color:'#fbbf24',icon:'🟡'},
+ half:{label:'Перша половина міста',color:'#ffd34f',icon:'🟡'},
+ oblast:{label:'Вся область',color:'#a78bfa',icon:'🟣'}
 };
 async function findCityBoundary(city){
  const q=city+', Україна';
@@ -95,6 +96,22 @@ async function findCityBoundary(city){
  });
  return candidates[0];
 }
+async function findCenterBoundary(city){
+ const q=city+', центральний район, Україна';
+ const url='https://nominatim.openstreetmap.org/search?format=jsonv2&limit=10&countrycodes=ua&polygon_geojson=1&addressdetails=1&q='+encodeURIComponent(q);
+ const response=await fetch(url,{headers:{'Accept':'application/json'}});
+ if(!response.ok)throw Error('Сервіс меж центрального району тимчасово недоступний');
+ const results=await response.json();
+ const cityKey=normalize(city);
+ const candidates=results.filter(x=>{
+  const g=x.geojson;
+  if(!g||!['Polygon','MultiPolygon'].includes(g.type))return false;
+  const name=normalize((x.display_name||'')+' '+(x.name||''));
+  return name.includes(cityKey)&&/(централ|central)/i.test((x.display_name||'')+' '+(x.name||''));
+ });
+ if(!candidates.length)throw Error('Окремі межі центрального району не знайдені в OpenStreetMap. Щоб не показувати приблизну зону як точну, позначку не поставлено.');
+ return candidates[0];
+}
 function clipRingAtLongitude(ring,cut,keepWest){
  const inside=p=>keepWest?p[0]<=cut:p[0]>=cut;
  const out=[];
@@ -111,7 +128,7 @@ function clipRingAtLongitude(ring,cut,keepWest){
  if(out[0][0]!==out[out.length-1][0]||out[0][1]!==out[out.length-1][1])out.push(out[0]);
  return out.length>=4?out:null;
 }
-function makeHalfCityGeometry(geometry){
+function makeHalfCityGeometry(geometry,keepWest=true){
  const polygons=geometry.type==='Polygon'?[geometry.coordinates]:geometry.coordinates;
  let min=Infinity,max=-Infinity;
  const scan=coords=>{coords.forEach(p=>{min=Math.min(min,p[0]);max=Math.max(max,p[0])})};
@@ -119,7 +136,7 @@ function makeHalfCityGeometry(geometry){
  const cut=(min+max)/2;
  const clipped=[];
  polygons.forEach(poly=>{
-  const rings=poly.map(r=>clipRingAtLongitude(r,cut,true)).filter(Boolean);
+  const rings=poly.map(r=>clipRingAtLongitude(r,cut,keepWest)).filter(Boolean);
   if(rings.length)clipped.push(rings);
  });
  if(!clipped.length)throw Error('Не вдалося поділити межі міста навпіл');
@@ -130,18 +147,18 @@ async function setCityAlert(status){
  const input=document.getElementById('cityName');
  const city=input.value.trim();
  const oblast=document.getElementById('region').value;
+ if(status==='oblast'){
+  if(!oblast){toast('Спочатку оберіть область');return}
+  const list=sharedState.cityAlerts||(sharedState.cityAlerts=[]);
+  const item={id:'oblast-'+oblast,city:oblast,oblast,status:'oblast',updatedAt:Date.now()};
+  const index=list.findIndex(x=>x.status==='oblast'&&x.oblast===oblast);
+  if(index>=0)list[index]=item;else list.push(item);
+  statuses[oblast]='regional';if(geoLayer)geoLayer.setStyle(style);refresh();renderCityAlerts();await saveSharedState();toast(oblast+': позначена вся область');return;
+ }
  if(!city){toast('Введіть назву міста');input.focus();return}
  if(status==='clear'){
   sharedState.cityAlerts=(sharedState.cityAlerts||[]).filter(x=>normalize(x.city)!==normalize(city));
   renderCityAlerts();await saveSharedState();toast('Міську позначку знято: '+city);return;
- }
- if(status==='oblast'){
-  if(!oblast){toast('Спочатку оберіть область');return}
-  const list=sharedState.cityAlerts||(sharedState.cityAlerts=[]);
-  let item=list.find(x=>normalize(x.city)===normalize(city));
-  if(!item){item={id:'city-'+Date.now(),city};list.push(item)}
-  item.city=city;item.oblast=oblast;item.status='oblast';item.updatedAt=Date.now();
-  statuses[oblast]='regional';if(geoLayer)geoLayer.setStyle(style);refresh();renderCityAlerts();await saveSharedState();toast(oblast+': тривога лише в області');return;
  }
  try{
   const list=sharedState.cityAlerts||(sharedState.cityAlerts=[]);
@@ -151,10 +168,10 @@ async function setCityAlert(status){
    toast('Шукаю межі центрального району…');
    const found=await findCenterBoundary(city);
    item.city=city;item.oblast=oblast||'';item.geometry=found.geojson;item.lat=Number(found.lat);item.lon=Number(found.lon);item.status='center';item.updatedAt=Date.now();
-  }else if(status==='half'){
-   toast('Завантажую межі міста та зафарбовую половину…');
+  }else if(status==='half-west'||status==='half-east'){
+   toast('Завантажую межі міста та ділю його на дві частини…');
    const found=await findCityBoundary(city);
-   item.city=city;item.oblast=oblast||'';item.geometry=found.geojson;item.lat=Number(found.lat);item.lon=Number(found.lon);item.status='half';item.updatedAt=Date.now();
+   item.city=city;item.oblast=oblast||'';item.geometry=found.geojson;item.lat=Number(found.lat);item.lon=Number(found.lon);item.status=status;item.updatedAt=Date.now();
   }else{
    const found=await findCityBoundary(city);
    item.city=city;item.oblast=oblast||'';item.geometry=found.geojson;item.lat=Number(found.lat);item.lon=Number(found.lon);item.status=status;item.updatedAt=Date.now();
@@ -192,24 +209,17 @@ function renderCityAlerts(){
    }catch(e){console.warn('Не вдалося відобразити межі центрального району',e)}
    return;
   }
-  if(item.status==='half'&&item.geometry){
+  if((item.status==='half'||item.status==='half-west'||item.status==='half-east')&&item.geometry){
    try{
-    const half=makeHalfCityGeometry(item.geometry);
+    const half=makeHalfCityGeometry(item.geometry,item.status!=='half-east');
     const area=L.geoJSON(half,{style:{color:meta.color,weight:2.5,opacity:1,fillColor:meta.color,fillOpacity:.48,interactive:false}}).addTo(map);
     cityAlertLayers.push(area);
     const bounds=area.getBounds();
     if(bounds.isValid()){
-     const icon=L.divIcon({className:'',html:'<span style="display:inline-block;padding:4px 7px;border:1px solid '+meta.color+';border-radius:8px;background:#101927ed;color:#fff;font-size:11px;font-weight:800;white-space:nowrap">🟡 '+String(item.city).replace(/[<>&"]/g,'')+' · половина</span>',iconSize:[150,26],iconAnchor:[75,13]});
+     const icon=L.divIcon({className:'',html:'<span style="display:inline-block;padding:4px 7px;border:1px solid '+meta.color+';border-radius:8px;background:#101927ed;color:#fff;font-size:11px;font-weight:800;white-space:nowrap">🟡 '+String(item.city).replace(/[<>&"]/g,'')+(item.status==='half-east'?' · друга половина':' · перша половина')+'</span>',iconSize:[150,26],iconAnchor:[75,13]});
      cityAlertLayers.push(L.marker(bounds.getCenter(),{icon,keyboard:false,interactive:false}).addTo(map));
     }
    }catch(e){console.warn('Не вдалося відобразити половину міста',e)}
-   return;
-  }
-  if(item.status==='except-center'&&item.geometry){
-   try{
-    const area=L.geoJSON(item.geometry,{style:{color:meta.color,weight:2.5,opacity:1,fillColor:meta.color,fillOpacity:.32,interactive:false}}).addTo(map);
-    cityAlertLayers.push(area);
-   }catch(e){console.warn('Не вдалося відобразити міську зону',e)}
    return;
   }
   const lat=Number(item.lat),lon=Number(item.lon);if(!Number.isFinite(lat)||!Number.isFinite(lon))return;
