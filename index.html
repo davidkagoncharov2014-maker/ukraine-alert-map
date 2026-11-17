@@ -87,7 +87,7 @@ async function refreshAdministrativeDetail(){
  const raionSets=[];
  await Promise.all(regions.map(async feature=>{
   const p=feature.properties||{};
-  const slug=detailSlug(p['name:uk']||p.name||propName(feature));
+  const slug=detailSlug(p['name:uk']||p.UA_NAME||p.name||propName(feature));
   if(!slug)return;
   const data=await loadDetailFile(slug);
   if(data)raionSets.push({slug,data});
