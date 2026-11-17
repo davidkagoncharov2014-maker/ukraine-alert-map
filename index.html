@@ -253,7 +253,7 @@ function applyAutoAlerts(){
   if(a.type==='state'||a.type==='oblast')region=mapPublicRegion(a.slug,a.name_uk);
   else if(a.oblast_slug)region=mapPublicRegion(a.oblast_slug,'');
   if(!region)return;
-  const status=(a.type==='state'||a.type==='oblast')?'regional':'partial';
+  const status=a.level==='yellow'?'shahed':((a.type==='state'||a.type==='oblast')?'regional':'partial');
   if(!next[region]||status==='regional')next[region]=status;
  });
  autoAlertMap=next;
@@ -267,7 +267,7 @@ async function syncPublicAlerts(){
   if(!r.ok)throw Error('HTTP '+r.status);
   const data=await r.json();
   if(!Array.isArray(data.alerts))throw Error('Неожиданный формат данных');
-  const nextSignature=JSON.stringify(data.alerts.map(a=>[a.slug,a.type,a.oblast_slug]).sort((a,b)=>String(a[0]).localeCompare(String(b[0]))));
+  const nextSignature=JSON.stringify(data.alerts.map(a=>[a.slug,a.type,a.oblast_slug,a.level]).sort((a,b)=>String(a[0]).localeCompare(String(b[0]))));
   const changed=nextSignature!==publicAlertSignature;
   publicActiveAlerts=data.alerts;
   publicAlertSignature=nextSignature;
