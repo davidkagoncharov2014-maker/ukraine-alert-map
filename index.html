@@ -69,12 +69,13 @@ function clearDetailLayers(){adminDetailLayers.forEach(layer=>map.removeLayer(la
 function addDetailLayer(data,level,oblast){
  if(!data?.features?.length)return;
  const layer=L.geoJSON(data,{
+  bubblingMouseEvents:false,
   // Невидимая заливка делает кликабельной всю площадь района, а не только тонкую границу.
   style:()=>({color:level===2?'#77899d':'#64788d',weight:level===2?2:1.6,opacity:.95,fill:true,fillColor:'#8da6bd',fillOpacity:.025,dashArray:level===2?null:'3 3',interactive:true}),
   onEachFeature:(feature,shape)=>{
    const name=detailName(feature);if(!name)return;
    shape.bindTooltip(name,{permanent:map.getZoom()>=(level===2?7.3:8.6),direction:'center',className:'region-label',opacity:.9});
-   shape.on('click',e=>{if(e?.originalEvent)L.DomEvent.stopPropagation(e);selectDistrictOnMap(feature,oblast)});
+   shape.on('click',e=>{if(e?.originalEvent)L.DomEvent.stop(e.originalEvent);selectDistrictOnMap(feature,oblast,level)});
   }
  }).addTo(map);
  adminDetailLayers.push(layer);
@@ -131,36 +132,51 @@ function refresh(){if(geoLayer)geoLayer.setStyle(style);const effective={...stat
 async function setRegion(st){if(!admin||!adminPassword)return;const n=document.getElementById('region').value;if(!n){toast('Сначала выберите область');return}const previous=statuses[n]||'clear';const previousReports=(sharedState.uavReports||[]).map(x=>({...x}));if(st==='clear'){if(temporaryAlertTimers[n])clearTimeout(temporaryAlertTimers[n]);delete temporaryAlertTimers[n];delete temporaryAlertMap[n];(sharedState.uavReports||[]).forEach(x=>{if(x.region===n)x.status='cleared'});renderUavReports()}statuses[n]=st;refresh();addEvent(labels[st],n,colors[st]);announce(labels[st]+'. Область: '+n);const ok=await saveSharedState();if(!ok){statuses[n]=previous;sharedState.uavReports=previousReports;refresh();renderUavReports();return}toast(n+': '+labels[st]+' — сохранено на сервере')}
 function announce(message){if(!voiceOn||!('speechSynthesis'in window))return;window.speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(message);u.lang='ru-RU';u.rate=0.92;window.speechSynthesis.speak(u)}function toggleVoice(){voiceOn=!voiceOn;document.getElementById('voiceBtn').textContent=voiceOn?'🔊 Голос включён':'🔇 Голос выключен';if(voiceOn){announce('Голосовые оповещения включены');toast('Голосовые оповещения включены')}else{window.speechSynthesis?.cancel();toast('Голос выключен')}}function testVoice(){if(!('speechSynthesis'in window)){toast('Озвучка не поддерживается браузером');return}voiceOn=true;document.getElementById('voiceBtn').textContent='🔊 Голос включён';announce('Внимание. Это проверка голосового оповещения. Реальные данные не подключены.')}
 const districtStatusMeta={clear:{label:'Отбой',icon:'🟢',color:'#35d39a'},ballistic:{label:'Баллистическая тревога',icon:'🔴',color:'#e23b48'},kab:{label:'Угроза КАБ',icon:'🟠',color:'#f97316'},shahed:{label:'Угроза БПЛА',icon:'🟡',color:'#ffd34f'}};
-let selectedDistrictFeature=null,selectedDistrictOblast='';
-function selectDistrictOnMap(feature,oblast){
+let selectedDistrictFeature=null,selectedDistrictOblast='',selectedDistrictLevel=2,selectedDistrictKey='';
+function districtFeatureKey(feature,oblast,level){
+ try{
+  const b=L.geoJSON(feature).getBounds();
+  const box=b.toBBoxString().split(',').map(n=>Number(n).toFixed(4)).join('_');
+  return 'district-'+detailSlug(oblast)+'-'+(level===3?'hromada':'raion')+'-'+detailSlug(detailName(feature))+'-'+box;
+ }catch(e){return 'district-'+detailSlug(oblast)+'-'+detailSlug(detailName(feature))+'-'+detailSlug(JSON.stringify(feature?.geometry||{}).slice(0,120))}
+}
+function selectDistrictOnMap(feature,oblast,level=2){
  const name=detailName(feature)||'Район';
- selectedDistrictFeature=feature;selectedDistrictOblast=oblast||'';
+ selectedDistrictFeature=feature;selectedDistrictOblast=oblast||'';selectedDistrictLevel=level;
+ selectedDistrictKey=districtFeatureKey(feature,selectedDistrictOblast,level);
  const region=document.getElementById('region');if(region&&oblast)region.value=oblast;
- const input=document.getElementById('districtName');if(input)input.value=name;
- toast('Выбран район: '+name+' · '+(oblast||'область не определена'));
+ const input=document.getElementById('districtName');if(input)input.value=name+' · '+(level===3?'громада':'район');
+ toast('Выбрано: '+name+' · '+(oblast||'область не определена'));
 }
 async function setDistrictStatus(status){
- if(!admin||!adminPassword)return;
+ if(!admin||!adminPassword){toast('Сначала войди в панель администратора');return}
  const meta=districtStatusMeta[status];if(!meta)return;
- if(!selectedDistrictFeature){toast('Сначала приблизь карту и нажми на контур района');return}
+ if(!selectedDistrictFeature){toast('Сначала нажми внутри нужного района на карте');return}
  const district=detailName(selectedDistrictFeature)||'Район';
  const oblast=selectedDistrictOblast||document.getElementById('region').value;
  if(!oblast){toast('Не удалось определить область района');return}
  const list=sharedState.cityAlerts||(sharedState.cityAlerts=[]);
  const key=x=>String(x||'').toLocaleLowerCase('uk-UA').replace(/\\s+/g,' ').trim();
- const index=list.findIndex(x=>x.status==='district'&&key(x.city)===key(district)&&key(x.oblast)===key(oblast));
+ const id=selectedDistrictKey||districtFeatureKey(selectedDistrictFeature,oblast,selectedDistrictLevel);
+ let index=list.findIndex(x=>x.status==='district'&&x.id===id);
+ // Совместимость со старыми районными отметками без уникального id.
+ if(index<0)index=list.findIndex(x=>x.status==='district'&&!x.id&&key(x.city)===key(district)&&key(x.oblast)===key(oblast));
  const previous=index>=0?{...list[index]}:null;
  if(status==='clear'){
   if(index>=0)list.splice(index,1);
  }else{
-  const item={id:'district-'+detailSlug(oblast)+'-'+detailSlug(district),city:district,oblast,status:'district',alertStatus:status,geometry:{type:'Feature',properties:selectedDistrictFeature.properties||{},geometry:selectedDistrictFeature.geometry},updatedAt:Date.now()};
+  const item={id,city:district,oblast,status:'district',alertStatus:status,geometry:{type:'Feature',properties:selectedDistrictFeature.properties||{},geometry:selectedDistrictFeature.geometry},updatedAt:Date.now()};
   if(index>=0)list[index]=item;else list.push(item);
  }
- renderCityAlerts();
+ renderCityAlerts();renderDistrictClearances();
  const ok=await saveSharedState();
- if(!ok){if(status==='clear'){if(previous)list.push(previous)}else if(index>=0)list[index]=previous;else list.pop();renderCityAlerts();return}
+ if(!ok){
+  if(status==='clear'){if(previous)list.splice(Math.min(index,list.length),0,previous)}
+  else if(index>=0)list[index]=previous;else{const added=list.findIndex(x=>x.id===id);if(added>=0)list.splice(added,1)}
+  renderCityAlerts();renderDistrictClearances();return
+ }
  addEvent(meta.label+' · район',district+' · '+oblast,meta.color);
- toast(meta.label+': '+district+' · '+oblast+' — сохранено');
+ toast(status==='clear'?'Отбой: '+district+' · '+oblast:'Включено только: '+district+' · '+oblast+' — сохранено');
 }
 function renderDistrictClearances(){
  const root=document.getElementById('districtClearanceList');if(!root)return;
