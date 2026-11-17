@@ -39,7 +39,7 @@ function showGeo(g,source){
  const names=[...new Set(g.features.map(propName))].sort((a,b)=>a.localeCompare(b,'uk'));
  const sel=document.getElementById('region');sel.innerHTML='<option value="">Выберите область</option>';
  names.forEach(n=>{const o=document.createElement('option');o.value=n;o.textContent=n;sel.append(o)});
- document.getElementById('mapStatus').textContent=names.length+' областей · '+source;geoSource=source;renderUavReports();renderCityAlerts();applyAutoAlerts();runDiagnostics();
+ document.getElementById('mapStatus').textContent=names.length+' областей · '+source;geoSource=source;renderUavReports();renderCityAlerts();runDiagnostics();
 }
 async function fetchWithTimeout(url){const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),12000);try{const r=await fetch(url,{signal:controller.signal,cache:'no-cache'});if(!r.ok)throw Error('HTTP '+r.status);return await r.json()}finally{clearTimeout(timer)}}
 async function loadGeo(force=false){
