@@ -69,11 +69,12 @@ function clearDetailLayers(){adminDetailLayers.forEach(layer=>map.removeLayer(la
 function addDetailLayer(data,level,oblast){
  if(!data?.features?.length)return;
  const layer=L.geoJSON(data,{
-  style:()=>({color:level===2?'#77899d':'#64788d',weight:level===2?1.5:1.1,opacity:.9,fill:false,dashArray:level===2?null:'3 3',interactive:true}),
+  // Невидимая заливка делает кликабельной всю площадь района, а не только тонкую границу.
+  style:()=>({color:level===2?'#77899d':'#64788d',weight:level===2?2:1.6,opacity:.95,fill:true,fillColor:'#8da6bd',fillOpacity:.025,dashArray:level===2?null:'3 3',interactive:true}),
   onEachFeature:(feature,shape)=>{
    const name=detailName(feature);if(!name)return;
    shape.bindTooltip(name,{permanent:map.getZoom()>=(level===2?7.3:8.6),direction:'center',className:'region-label',opacity:.9});
-   shape.on('click',()=>selectDistrictOnMap(feature,oblast));
+   shape.on('click',e=>{if(e?.originalEvent)L.DomEvent.stopPropagation(e);selectDistrictOnMap(feature,oblast)});
   }
  }).addTo(map);
  adminDetailLayers.push(layer);
@@ -91,22 +92,22 @@ async function refreshAdministrativeDetail(){
   const slug=detailSlug(p['name:uk']||p.UA_NAME||p.name||propName(feature));
   if(!slug)return;
   const data=await loadDetailFile(slug);
-  if(data)raionSets.push({slug,data});
+  if(data)raionSets.push({slug,data,oblast:propName(feature)});
  }));
  if(map.getZoom()!==zoom)return;
- raionSets.forEach(x=>addDetailLayer(x.data,2,regions.find(f=>detailSlug(f.properties?.['name:uk']||f.properties?.UA_NAME||f.properties?.name||propName(f))===x.slug)?propName(regions.find(f=>detailSlug(f.properties?.['name:uk']||f.properties?.UA_NAME||f.properties?.name||propName(f))===x.slug)):''));
+ raionSets.forEach(x=>addDetailLayer(x.data,2,x.oblast));
  if(zoom<8.4)return;
  const visibleRaions=[];
- raionSets.forEach(({slug,data})=>data.features.forEach(f=>{
-  try{if(L.geoJSON(f).getBounds().intersects(bounds))visibleRaions.push(slug+'.'+detailSlug(detailName(f)))}catch(e){}
+ raionSets.forEach(({slug,data,oblast})=>data.features.forEach(f=>{
+  try{if(L.geoJSON(f).getBounds().intersects(bounds))visibleRaions.push({path:slug+'.'+detailSlug(detailName(f)),oblast})}catch(e){}
  }));
  const hromadaSets=[];
- await Promise.all(visibleRaions.map(async path=>{
-  if(path.endsWith('.'))return;
-  const data=await loadDetailFile(path);if(data)hromadaSets.push(data);
+ await Promise.all(visibleRaions.map(async item=>{
+  if(item.path.endsWith('.'))return;
+  const data=await loadDetailFile(item.path);if(data)hromadaSets.push({data,oblast:item.oblast});
  }));
  if(map.getZoom()!==zoom)return;
- hromadaSets.forEach(data=>addDetailLayer(data,3,''));
+ hromadaSets.forEach(item=>addDetailLayer(item.data,3,item.oblast));
  document.getElementById('mapStatus').textContent='Районы и громады · '+geoSource;
 }
 function scheduleAdministrativeDetail(){
