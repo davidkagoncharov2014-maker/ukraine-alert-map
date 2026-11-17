@@ -39,8 +39,80 @@ function showGeo(g,source){
  const names=[...new Set(g.features.map(propName))].sort((a,b)=>a.localeCompare(b,'uk'));
  const sel=document.getElementById('region');sel.innerHTML='<option value="">Выберите область</option>';
  names.forEach(n=>{const o=document.createElement('option');o.value=n;o.textContent=n;sel.append(o)});
- document.getElementById('mapStatus').textContent=names.length+' областей · '+source;geoSource=source;renderUavReports();renderCityAlerts();runDiagnostics();
+ document.getElementById('mapStatus').textContent=names.length+' областей · '+source;geoSource=source;renderUavReports();renderCityAlerts();runDiagnostics();scheduleAdministrativeDetail();
 }
+
+// Real administrative detail: raions -> hromadas.
+const DETAIL_BASE='https://cdn.jsdelivr.net/gh/darmat1/ukraine-geo-data@main/geodata/';
+const detailCache=new Map(),detailLoading=new Set(),adminDetailLayers=[];
+let detailRefreshTimer=null;
+function detailSlug(value){
+ const map={'а':'a','б':'b','в':'v','г':'h','ґ':'g','д':'d','е':'e','є':'ye','ж':'zh','з':'z','и':'y','і':'i','ї':'yi','й':'y','к':'k','л':'l','м':'m','н':'n','о':'o','п':'p','р':'r','с':'s','т':'t','у':'u','ф':'f','х':'kh','ц':'ts','ч':'ch','ш':'sh','щ':'shch','ь':'','ю':'yu','я':'ya',"'":'','ʼ':''};
+ return String(value||'').toLowerCase().split('').map(c=>map[c]??c).join('').replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'');
+}
+function detailName(feature){
+ const p=feature?.properties||{};
+ return p['name:uk']||p.name||p['name:ru']||p['name:en']||p.shapeName||'';
+}
+async function loadDetailFile(path){
+ if(detailCache.has(path))return detailCache.get(path);
+ if(detailLoading.has(path))return null;
+ detailLoading.add(path);
+ try{
+  const data=await fetchWithTimeout(DETAIL_BASE+path+'.geojson');
+  if(!data||!Array.isArray(data.features))throw Error('Некорректные границы');
+  detailCache.set(path,data);return data;
+ }catch(e){console.warn('Не удалось загрузить слой детализации',path,e);return null}
+ finally{detailLoading.delete(path)}
+}
+function clearDetailLayers(){adminDetailLayers.forEach(layer=>map.removeLayer(layer));adminDetailLayers.length=0}
+function addDetailLayer(data,level){
+ if(!data?.features?.length)return;
+ const layer=L.geoJSON(data,{
+  style:()=>({color:level===2?'#77899d':'#64788d',weight:level===2?1.5:1.1,opacity:.9,fill:false,dashArray:level===2?null:'3 3',interactive:false}),
+  onEachFeature:(feature,shape)=>{
+   const name=detailName(feature);if(!name)return;
+   shape.bindTooltip(name,{permanent:map.getZoom()>=(level===2?7.3:8.6),direction:'center',className:'region-label',opacity:.9});
+  }
+ }).addTo(map);
+ adminDetailLayers.push(layer);
+}
+async function refreshAdministrativeDetail(){
+ if(!geoLayer)return;
+ const zoom=map.getZoom(),bounds=map.getBounds();
+ clearDetailLayers();
+ if(zoom<6.5){document.getElementById('mapStatus').textContent='Области · приблизьте карту для районов';return}
+ const regions=[];
+ geoLayer.eachLayer(layer=>{if(bounds.intersects(layer.getBounds()))regions.push(layer.feature)});
+ const raionSets=[];
+ await Promise.all(regions.map(async feature=>{
+  const p=feature.properties||{};
+  const slug=detailSlug(p['name:uk']||p.name||propName(feature));
+  if(!slug)return;
+  const data=await loadDetailFile(slug);
+  if(data)raionSets.push({slug,data});
+ }));
+ if(map.getZoom()!==zoom)return;
+ raionSets.forEach(x=>addDetailLayer(x.data,2));
+ if(zoom<8.4)return;
+ const visibleRaions=[];
+ raionSets.forEach(({slug,data})=>data.features.forEach(f=>{
+  try{if(L.geoJSON(f).getBounds().intersects(bounds))visibleRaions.push(slug+'.'+detailSlug(detailName(f)))}catch(e){}
+ }));
+ const hromadaSets=[];
+ await Promise.all(visibleRaions.map(async path=>{
+  if(path.endsWith('.'))return;
+  const data=await loadDetailFile(path);if(data)hromadaSets.push(data);
+ }));
+ if(map.getZoom()!==zoom)return;
+ hromadaSets.forEach(data=>addDetailLayer(data,3));
+ document.getElementById('mapStatus').textContent='Районы и громады · '+geoSource;
+}
+function scheduleAdministrativeDetail(){
+ clearTimeout(detailRefreshTimer);
+ detailRefreshTimer=setTimeout(()=>refreshAdministrativeDetail().catch(e=>console.warn(e)),180);
+}
+map.on('zoomend moveend',scheduleAdministrativeDetail);
 async function fetchWithTimeout(url){const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),12000);try{const r=await fetch(url,{signal:controller.signal,cache:'no-cache'});if(!r.ok)throw Error('HTTP '+r.status);return await r.json()}finally{clearTimeout(timer)}}
 async function loadGeo(force=false){
  if(geoLoading)return;geoLoading=true;const status=document.getElementById('mapStatus');const btn=document.getElementById('retryGeo');btn.disabled=true;
