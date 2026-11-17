@@ -148,7 +148,7 @@ function selectDistrictOnMap(feature,oblast,level=2){
  const input=document.getElementById('districtName');if(input)input.value=name+' · '+(level===3?'громада':'район');
  toast('Выбрано: '+name+' · '+(oblast||'область не определена'));
 }
-async function setDistrictStatus(status){
+async async function setDistrictStatus(status){
  if(!admin||!adminPassword){toast('Сначала войди в панель администратора');return}
  const meta=districtStatusMeta[status];if(!meta)return;
  if(!selectedDistrictFeature){toast('Сначала нажми внутри нужного района на карте');return}
