@@ -359,6 +359,18 @@ function renderCityAlerts(){
    return;
   }
   const meta=cityAlertMeta[item.status]||cityAlertMeta.center;
+  if(item.status==='city'&&item.geometry){
+   try{
+    const area=L.geoJSON(item.geometry,{style:{color:meta.color,weight:3,opacity:1,fillColor:meta.color,fillOpacity:.42,interactive:false}}).addTo(map);
+    cityAlertLayers.push(area);
+    const bounds=area.getBounds();
+    if(bounds.isValid()){
+     const icon=L.divIcon({className:'',html:'<span style="display:inline-block;padding:4px 7px;border:1px solid '+meta.color+';border-radius:8px;background:#101927ed;color:#fff;font-size:11px;font-weight:800;white-space:nowrap">🔴 '+String(item.city).replace(/[<>&"]/g,'')+'</span>',iconSize:[150,26],iconAnchor:[75,13]});
+     cityAlertLayers.push(L.marker(bounds.getCenter(),{icon,keyboard:false,interactive:false}).addTo(map));
+    }
+   }catch(e){console.warn('Не удалось нарисовать границы города',e)}
+   return;
+  }
   if(item.status==='center'){
    if(!item.geometry)return;
    try{
