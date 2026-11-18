@@ -302,8 +302,9 @@ async function setCityAlert(status){
  }
  if(!city){toast(status==='clear'?'Введіть місто або виберіть область':'Введіть назву міста');input.focus();return}
  if(status==='clear'){
+  const oldCityAlert=(sharedState.cityAlerts||[]).find(x=>normalize(x.city)===normalize(city));
   sharedState.cityAlerts=(sharedState.cityAlerts||[]).filter(x=>normalize(x.city)!==normalize(city));
-  renderCityAlerts();await saveSharedState();const oldCityAlert=(sharedState.cityAlerts||[]).find(x=>normalize(x.city)===normalize(city));announce('Відбій. '+city+'. '+cityThreatLabel(oblast,oldCityAlert),'clear');toast('Міську позначку знято: '+city);return;
+  renderCityAlerts();await saveSharedState();announce('Відбій. '+city+'. '+cityThreatLabel(oblast,oldCityAlert),'clear');toast('Міську позначку знято: '+city);return;
  }
  try{
   const list=sharedState.cityAlerts||(sharedState.cityAlerts=[]);
