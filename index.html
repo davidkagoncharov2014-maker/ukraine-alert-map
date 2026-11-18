@@ -122,7 +122,7 @@ const CLEAR_VOICE_AUDIO='https://resource2.heygen.ai/text_to_speech/9c71fd772c2e
 function playClearVoice(message){if(!voiceOn)return;const audio=new Audio(CLEAR_VOICE_AUDIO);audio.preload='auto';let continued=false;const continueDetails=()=>{if(continued)return;continued=true;if(message)speakAlertDetails(message)};audio.onended=continueDetails;audio.onerror=continueDetails;const attempt=audio.play();if(attempt&&attempt.catch)attempt.catch(continueDetails)}
 const ALERT_VOICE_AUDIO='https://resource2.heygen.ai/text_to_speech/9c71fd772c2e41eeb9e0ff54c19198d0/b94b0dda433d40c38b92290eba94484a/id=362e3d50124a41529a6a0a33f0381a2d.wav';
 function playAlertVoice(message){if(!voiceOn)return;const audio=new Audio(ALERT_VOICE_AUDIO);audio.preload='auto';let continued=false;const continueDetails=()=>{if(continued)return;continued=true;if(message)speakAlertDetails(message)};audio.onended=continueDetails;audio.onerror=continueDetails;const attempt=audio.play();if(attempt&&attempt.catch)attempt.catch(continueDetails)}
-function announce(message,status){if(!voiceOn)return;if(/отбой|відбій|all clear/i.test(String(message)))playClearVoice(message);else if(status==='shahed')playYellowVoice(message);else playAlertVoice(message)}
+function announce(message,status){if(!voiceOn)return;if(/отбой|відбій|all clear/i.test(String(message)))playClearVoice(message);else if(status==='shahed')playYellowVoice(message);else playAlertVoice(message)}const THREAT_SPEECH_NAMES={ballistic:'балістична загроза',kab:'загроза керованих авіабомб',cruise:'загроза крилатих ракет',mixed:'загроза ракет і шахедів',shahed:'загроза безпілотників',nuclear:'ядерна загроза',regional:'повітряна тривога',partial:'часткова тривога'};function cityThreatLabel(oblast,item){const key=item?.alertThreat||statuses[oblast]||autoAlertMap[oblast]||'regional';return THREAT_SPEECH_NAMES[key]||'повітряна тривога'}
 async function publishVoiceAnnouncement(){if(!admin||!adminPassword){toast('Сначала войдите в админ-панель');return}const input=document.getElementById('voiceMessage'),message=(input?.value||'').trim();if(message.length<2){toast('Введите текст сообщения');input?.focus();return}const previous=sharedState.voiceAnnouncement;sharedState.voiceAnnouncement={id:Date.now()+'-'+Math.random().toString(36).slice(2,8),text:message,updatedAt:Date.now()};const ok=await saveSharedState();if(!ok){sharedState.voiceAnnouncement=previous;return}lastServerAlertSnapshot=alertSnapshot({regions:statuses,cityAlerts:sharedState.cityAlerts,voiceAnnouncement:sharedState.voiceAnnouncement});announce(message);input.value='';toast('Сообщение отправлено посетителям с включённым голосом')}function toggleVoice(){if(!('speechSynthesis'in window)&&!('Audio'in window)){toast('Озвучка не поддерживается браузером');return}voiceOn=!voiceOn;localStorage.setItem('ua-alert-voice',voiceOn?'on':'off');document.getElementById('voiceBtn').textContent=voiceOn?'🔊 Голос включён':'🔇 Голос выключен';if(voiceOn){const a=new Audio(ALERT_VOICE_AUDIO);a.play().catch(()=>{});toast('Автоозвучка включена на этом устройстве')}else{if('speechSynthesis'in window)window.speechSynthesis.cancel();toast('Голос выключен на этом устройстве')}}function testVoice(){if(!('speechSynthesis'in window)){toast('Озвучка не поддерживается браузером');return}voiceOn=true;document.getElementById('voiceBtn').textContent='🔊 Голос включён';announce('Проверка звука. Новые тревоги будут озвучиваться на этом устройстве после получения обновления с сервера.')}
 function testDeepVoice(){const a=new Audio(ALERT_VOICE_AUDIO);a.play().then(()=>toast('Тест нового голосового оповещения')).catch(()=>toast('Не удалось запустить аудио. Сначала нажми «Включить голос» и проверь подключение.'))}
 const districtStatusMeta={clear:{label:'Отбой',icon:'🟢',color:'#35d39a'},ballistic:{label:'Баллистическая тревога',icon:'🔴',color:'#e23b48'},kab:{label:'Угроза КАБ',icon:'🟠',color:'#f97316'},shahed:{label:'Угроза БПЛА',icon:'🟡',color:'#ffd34f'}};
@@ -303,12 +303,13 @@ async function setCityAlert(status){
  if(!city){toast(status==='clear'?'Введіть місто або виберіть область':'Введіть назву міста');input.focus();return}
  if(status==='clear'){
   sharedState.cityAlerts=(sharedState.cityAlerts||[]).filter(x=>normalize(x.city)!==normalize(city));
-  renderCityAlerts();await saveSharedState();announce('Відбій повітряної тривоги. Місто: '+city,'clear');toast('Міську позначку знято: '+city);return;
+  renderCityAlerts();await saveSharedState();const oldCityAlert=(sharedState.cityAlerts||[]).find(x=>normalize(x.city)===normalize(city));announce('Відбій. '+city+'. '+cityThreatLabel(oblast,oldCityAlert),'clear');toast('Міську позначку знято: '+city);return;
  }
  try{
   const list=sharedState.cityAlerts||(sharedState.cityAlerts=[]);
   let item=list.find(x=>normalize(x.city)===normalize(city));
   if(!item){item={id:'city-'+Date.now(),city};list.push(item)}
+   item.alertThreat=statuses[oblast]&&statuses[oblast]!=='clear'?statuses[oblast]:(autoAlertMap[oblast]&&autoAlertMap[oblast]!=='clear'?autoAlertMap[oblast]:'regional');
   if(status==='center'){
    toast('Шукаю точные границы центрального района…');
    const found=await findCenterBoundary(city);
@@ -321,7 +322,7 @@ async function setCityAlert(status){
    const found=await findCityBoundary(city);
    item.city=city;item.oblast=oblast||'';item.geometry=found.geojson;item.lat=Number(found.lat);item.lon=Number(found.lon);item.status=status;item.updatedAt=Date.now();
   }
-  renderCityAlerts();await saveSharedState();announce('Увага! '+cityAlertMeta[status].label+'. Місто: '+city,status);toast(city+': '+cityAlertMeta[status].label);addEvent(cityAlertMeta[status].label,city+' · межі з OpenStreetMap',cityAlertMeta[status].color);
+  renderCityAlerts();await saveSharedState();announce('Увага! '+cityThreatLabel(oblast,item)+'. Місто: '+city+'. '+cityAlertMeta[status].label,status);toast(city+': '+cityAlertMeta[status].label);addEvent(cityAlertMeta[status].label,city+' · межі з OpenStreetMap',cityAlertMeta[status].color);
  }catch(error){toast(error.message||'Не вдалося знайти межі міста')}
 }
 function renderCityAlerts(){
@@ -391,14 +392,14 @@ function toast(s){const t=document.getElementById('toast');t.textContent=s;t.cla
 
 
 let lastServerAlertSnapshot=null;
-function alertSnapshot(st){return{regions:st.regions||{},cityAlerts:(st.cityAlerts||[]).filter(x=>x.status!=='district').map(x=>({id:x.id||[x.status,x.oblast,x.city].join('|'),status:x.status,alertStatus:x.alertStatus||x.status,city:x.city||'',oblast:x.oblast||''})).sort((a,b)=>String(a.id).localeCompare(String(b.id))),voiceAnnouncement:st.voiceAnnouncement?{id:st.voiceAnnouncement.id,text:st.voiceAnnouncement.text}:null}}
+function alertSnapshot(st){return{regions:st.regions||{},cityAlerts:(st.cityAlerts||[]).filter(x=>x.status!=='district').map(x=>({id:x.id||[x.status,x.oblast,x.city].join('|'),status:x.status,alertStatus:x.alertStatus||x.status,alertThreat:x.alertThreat||'',city:x.city||'',oblast:x.oblast||''})).sort((a,b)=>String(a.id).localeCompare(String(b.id))),voiceAnnouncement:st.voiceAnnouncement?{id:st.voiceAnnouncement.id,text:st.voiceAnnouncement.text}:null}}
 function speakServerChanges(previous,next){
  if(!previous||!voiceOn)return;
  const messages=[],names={ballistic:'баллистическая тревога',kab:'угроза КАБ',cruise:'угроза крылатых ракет',mixed:'ракетная угроза',shahed:'угроза беспилотников',nuclear:'ядерная угроза',regional:'воздушная тревога',partial:'частичная тревога',clear:'отбой'};
  let hasNewAlert=false,hasYellowAlert=false,hasOtherAlert=false;for(const [region,status] of Object.entries(next.regions)){const before=previous.regions[region]||'clear';if(status!==before&&status!=='clear'){messages.push('Внимание. '+region+'. '+(names[status]||'тревога'));hasNewAlert=true;if(status==='shahed')hasYellowAlert=true;else hasOtherAlert=true}else if(status==='clear'&&before!=='clear')messages.push('Отбой тревоги. '+region)}
  const oldItems=new Map(previous.cityAlerts.map(x=>[x.id,x]));
- for(const item of next.cityAlerts){const old=oldItems.get(item.id),status=item.alertStatus||item.status,oldStatus=old?(old.alertStatus||old.status):'clear';if(status!=='clear'&&status!==oldStatus){messages.push('Внимание. '+(item.city||item.oblast||'Выбранная территория')+'. '+(names[status]||'тревога'));hasNewAlert=true;if(status==='shahed')hasYellowAlert=true;else hasOtherAlert=true}}
- for(const old of previous.cityAlerts){if(!next.cityAlerts.some(x=>x.id===old.id))messages.push('Отбой. '+(old.city||old.oblast||'Выбранная территория'))}
+ for(const item of next.cityAlerts){const old=oldItems.get(item.id),status=item.alertStatus||item.status,oldStatus=old?(old.alertStatus||old.status):'clear';if(status!=='clear'&&status!==oldStatus){messages.push('Увага! '+(item.status==='district'?(names[status]||'тривога'):(THREAT_SPEECH_NAMES[item.alertThreat]||'повітряна тривога'))+'. Місто: '+(item.city||item.oblast||'невідомо')+'. '+(item.status==='district'?'Район: ':'')+(item.status==='district'?(item.oblast||''):cityAlertMeta[item.status]?.label||''));hasNewAlert=true;if(status==='shahed')hasYellowAlert=true;else hasOtherAlert=true}}
+ for(const old of previous.cityAlerts){if(!next.cityAlerts.some(x=>x.id===old.id))messages.push('Відбій. '+(old.city||old.oblast||'невідома територія')+'. '+(old.status==='district'?(names[old.alertStatus]||'тривога'):(THREAT_SPEECH_NAMES[old.alertThreat]||'повітряна тривога')))}
  const oldVoice=previous.voiceAnnouncement?.id,newVoice=next.voiceAnnouncement;if(newVoice?.id&&newVoice.id!==oldVoice&&newVoice.text)messages.push(newVoice.text);if(messages.length){const details=messages.slice(0,8).join('. ');if(hasNewAlert){if(hasYellowAlert&&!hasOtherAlert)playYellowVoice(details);else playAlertVoice(details)}else playClearVoice(details)}
 }
 async function loadSharedState(){
