@@ -49,7 +49,7 @@ function effectiveRegionStatus(name){
  const slug=mapRegionSlugs[normalized]||regionSlugAliases[normalized];
  if(!slug)return direct||'clear';
  const active=Object.entries(sharedDistrictState).some(([key,value])=>key.startsWith(slug+'|')&&value!=='clear'&&value!=='false');
- return active?'regional':(direct||'clear');
+ return active?'partial':(direct||'clear');
 }
 function effectiveRegionLabel(name){
  const direct=temporaryAlertMap[name]||statuses[name];
