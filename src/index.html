@@ -258,8 +258,8 @@ function renderAutoAlertsControls(){
  if(on)on.disabled=enabled;if(off)off.disabled=!enabled;
  const pub=document.getElementById('autoAlertsPublicStatus'),meta=document.getElementById('autoAlertSyncMeta');
  const fetched=Date.parse(sharedState.provider?.fetchedAt||'');const fresh=Number.isFinite(fetched)&&Date.now()-fetched<180000;const stamp=Number.isFinite(fetched)?new Date(fetched).toLocaleString('ru-RU'):'нет успешной синхронизации';
- if(pub)pub.textContent=!enabled?'Автоматика выключена администратором':fresh?'Автоматика включена · UkraineAlarm API v3 · обновлено: '+stamp:'Автоматика включена · нет свежих данных, подсветка приостановлена';
- if(meta)meta.textContent=!enabled?'Автоматический режим отключён':fresh?'Источник: UkraineAlarm API v3 · последняя проверка: '+stamp:'Нет свежей синхронизации · последняя: '+stamp;
+ if(pub)pub.textContent=!enabled?'Автоматика выключена администратором':fresh?'Автоматика включена · '+(sharedState.provider?.source||'источник')+' · обновлено: '+stamp:'Автоматика включена · нет свежих данных, подсветка приостановлена';
+ if(meta)meta.textContent=!enabled?'Автоматический режим отключён':fresh?'Источник: '+(sharedState.provider?.source||'неизвестен')+' · последняя проверка: '+stamp:'Нет свежей синхронизации · последняя: '+stamp;
 }
 function applyAutoAlerts(){
  autoAlertMap={};
